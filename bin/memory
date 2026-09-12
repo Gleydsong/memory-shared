@@ -1,0 +1,40 @@
+#!/bin/sh
+set -eu
+
+ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+COMPOSE_FILE="$ROOT_DIR/docker-compose.memory.yml"
+COMMAND=${1:-help}
+cd "$ROOT_DIR"
+
+case "$COMMAND" in
+  up)
+    if [ ! -f .env ] || ! grep -q '^MEMORY_AGENT_KEYS_JSON=.' .env || ! grep -q '^MEMORY_AGENT_GRANTS_JSON=.' .env; then
+      printf '%s\n' 'Missing .env agent keys or grants. Run: ./scripts/setup-memory.sh' >&2
+      exit 1
+    fi
+    docker compose -f "$COMPOSE_FILE" up -d --build
+    ;;
+  down)
+    docker compose -f "$COMPOSE_FILE" down
+    ;;
+  status)
+    docker compose -f "$COMPOSE_FILE" ps
+    ;;
+  health)
+    curl --fail --silent --show-error "http://127.0.0.1:${MEMORY_MCP_PORT:-8787}/health"
+    printf '\n'
+    ;;
+  doctor|inspect|search|clear-session)
+    shift
+    npm run build >/dev/null
+    if [ -f .env ]; then
+      node --env-file=.env dist/cli.js "$COMMAND" "$@"
+    else
+      node dist/cli.js "$COMMAND" "$@"
+    fi
+    ;;
+  *)
+    printf '%s\n' 'Usage: memory <up|down|status|health|doctor|inspect|search|clear-session>'
+    exit 2
+    ;;
+esac

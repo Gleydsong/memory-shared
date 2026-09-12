@@ -1,0 +1,113 @@
+name: shared-agent-memory
+
+services:
+  redis:
+    image: redis:8.2-alpine
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    restart: unless-stopped
+    volumes:
+      - agent-memory-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [memory-backend]
+    security_opt: ["no-new-privileges:true"]
+
+  agent-memory-api:
+    image: ghcr.io/redis/agent-memory-server:0.15.2
+    command: ["agent-memory", "api", "--host", "0.0.0.0", "--port", "8000", "--task-backend", "docket"]
+    restart: unless-stopped
+    environment:
+      REDIS_URL: redis://redis:6379
+      DISABLE_AUTH: ${AGENT_MEMORY_DISABLE_AUTH:-true}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OLLAMA_API_BASE: ${OLLAMA_API_BASE:-http://host.docker.internal:11434}
+      GENERATION_MODEL: ${GENERATION_MODEL:-ollama/qwen3:8b}
+      FAST_MODEL: ${FAST_MODEL:-ollama/qwen3:8b}
+      SLOW_MODEL: ${SLOW_MODEL:-ollama/qwen3:8b}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-ollama/nomic-embed-text}
+      REDISVL_VECTOR_DIMENSIONS: ${REDISVL_VECTOR_DIMENSIONS:-768}
+      REDISVL_INDEX_NAME: ${REDISVL_INDEX_NAME:-memory_records_ollama_768}
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/v1/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 30
+    networks: [memory-backend]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    security_opt: ["no-new-privileges:true"]
+
+  agent-memory-worker:
+    image: ghcr.io/redis/agent-memory-server:0.15.2
+    command: ["agent-memory", "task-worker", "--concurrency", "4"]
+    restart: unless-stopped
+    environment:
+      REDIS_URL: redis://redis:6379
+      DISABLE_AUTH: ${AGENT_MEMORY_DISABLE_AUTH:-true}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OLLAMA_API_BASE: ${OLLAMA_API_BASE:-http://host.docker.internal:11434}
+      GENERATION_MODEL: ${GENERATION_MODEL:-ollama/qwen3:8b}
+      FAST_MODEL: ${FAST_MODEL:-ollama/qwen3:8b}
+      SLOW_MODEL: ${SLOW_MODEL:-ollama/qwen3:8b}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-ollama/nomic-embed-text}
+      REDISVL_VECTOR_DIMENSIONS: ${REDISVL_VECTOR_DIMENSIONS:-768}
+      REDISVL_INDEX_NAME: ${REDISVL_INDEX_NAME:-memory_records_ollama_768}
+    depends_on:
+      agent-memory-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import pathlib,sys; command=pathlib.Path('/proc/1/cmdline').read_bytes().replace(b'\\0',b' '); sys.exit(0 if b'task-worker' in command else 1)"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 20s
+    networks: [memory-backend]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    security_opt: ["no-new-privileges:true"]
+
+  shared-memory-mcp:
+    build:
+      context: .
+    restart: unless-stopped
+    environment:
+      MEMORY_PROVIDER: redis-agent-memory
+      AGENT_MEMORY_URL: http://agent-memory-api:8000
+      REDIS_URL: redis://redis:6379
+      MEMORY_MCP_HOST: 0.0.0.0
+      MEMORY_MCP_PORT: 8787
+      MEMORY_DISABLE_AUTH: "false"
+      MEMORY_AGENT_KEYS_JSON: ${MEMORY_AGENT_KEYS_JSON:-}
+      MEMORY_AGENT_GRANTS_JSON: ${MEMORY_AGENT_GRANTS_JSON:-}
+      MEMORY_WORKING_TTL_SECONDS: ${MEMORY_WORKING_TTL_SECONDS:-21600}
+      MEMORY_MAX_RESULTS: ${MEMORY_MAX_RESULTS:-7}
+      MEMORY_MIN_RELEVANCE: ${MEMORY_MIN_RELEVANCE:-0.25}
+      MEMORY_MAX_CONTEXT_TOKENS: ${MEMORY_MAX_CONTEXT_TOKENS:-2000}
+      MEMORY_MAX_CONTENT_BYTES: ${MEMORY_MAX_CONTENT_BYTES:-16384}
+      MEMORY_RATE_LIMIT_PER_MINUTE: ${MEMORY_RATE_LIMIT_PER_MINUTE:-120}
+    ports:
+      - "127.0.0.1:${MEMORY_MCP_PORT:-8787}:8787"
+    depends_on:
+      agent-memory-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/health').then(r=>{if(!r.ok)process.exit(1)})"]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+    networks: [memory-backend]
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+
+volumes:
+  agent-memory-redis-data:
+
+networks:
+  memory-backend:
+    driver: bridge
