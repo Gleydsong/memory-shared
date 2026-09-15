@@ -1,16 +1,16 @@
 # Shared Agent Memory
 
-Model-agnostic, project-isolated memory for Orca, Codex, Grok, and Cursor
-Composer. Agents use one authenticated MCP interface; the implementation hides
-Redis Agent Memory behind an `AgentMemoryProvider` seam.
+Memória agnóstica de modelo e isolada por projeto para Orca, Codex, Grok e Cursor
+Composer. Os agentes usam uma interface MCP autenticada; a implementação oculta o
+Redis Agent Memory atrás da costura `AgentMemoryProvider`.
 
-> **SOURCE CODE > MEMORY**
+> **CÓDIGO FONTE > MEMÓRIA**
 >
-> The repository is the source of truth. Shared memory provides historical and
-> contextual knowledge. If they disagree, trust the current repository, verify
-> whether the memory is stale, and update or supersede it.
+> O repositório é a fonte da verdade. A memória compartilhada oferece conhecimento
+> histórico e contextual. Se divergirem, confie no repositório atual, verifique se a
+> memória está obsoleta e atualize ou substitua o registro.
 
-## Architecture
+## Arquitetura
 
 ```mermaid
 flowchart TD
@@ -34,78 +34,78 @@ flowchart TD
     DB --> LM[Long-Term Memory]
 ```
 
-Responsibilities stay separate:
+As responsabilidades permanecem separadas:
 
-- Orca owns runs, tasks, dispatch, worker state, and coordination.
-- Git and the repository own current implementation truth.
-- Redis Agent Memory owns persistent contextual knowledge.
-- `shared-memory` defines the recall/write/handoff protocol.
-- MCP provides a common model-independent interface.
+- A Orca cuida de runs, tarefas, dispatch, estado dos workers e coordenação.
+- Git e o repositório detêm a verdade da implementação atual.
+- O Redis Agent Memory detém o conhecimento contextual persistente.
+- `shared-memory` define o protocolo de recall/gravação/handoff.
+- O MCP oferece uma interface comum independente de modelo.
 
-The application module exposes a small `AgentMemoryProvider` interface. The
-current `RedisAgentMemoryAdapter` maps it to the legacy V0 REST contract. Agents
-never see Redis keys, Redis commands, V0 endpoints, or provider-specific tool
-names. A future Redis Iris adapter can replace it without changing agent MCP
-configuration or the global skill.
+O módulo de aplicação expõe uma interface pequena `AgentMemoryProvider`. O
+`RedisAgentMemoryAdapter` atual mapeia para o contrato REST legado V0. Os agentes
+nunca veem chaves Redis, comandos Redis, endpoints V0 nem nomes de ferramentas
+específicos do provedor. Um adaptador futuro Redis Iris pode substituí-lo sem
+alterar a configuração MCP dos agentes nem a skill global.
 
-## Provider status and versions
+## Status do provedor e versões
 
-Verified on 2026-08-25/26:
+Verificado em 2026-08-25/26:
 
-| Surface | Pinned/verified version | Intended use |
+| Superfície | Versão fixada/verificada | Uso pretendido |
 |---|---:|---|
-| Redis Agent Memory Data Plane | OpenAPI `1.0.0` | Current supported Cloud/Iris contract |
-| Redis Agent Memory Python SDK | `redis-agent-memory 0.2.1` beta | Managed client reference |
-| OSS Agent Memory Server | `0.15.2` | Local development only; V0 research foundation |
-| Ollama | `0.32.5` | Local generation and embeddings |
-| Generation model | `qwen3:8b` | Local extraction/summarization |
-| Embedding model | `nomic-embed-text` | Local 768-dimensional semantic vectors |
-| MCP TypeScript SDK | `1.30.0` | Shared Streamable HTTP MCP |
-| Node.js | `>=20`; image `24.18` | Adapter/MCP runtime |
+| Redis Agent Memory Data Plane | OpenAPI `1.0.0` | Contrato Cloud/Iris suportado atual |
+| Redis Agent Memory Python SDK | `redis-agent-memory 0.2.1` beta | Referência de cliente gerenciado |
+| OSS Agent Memory Server | `0.15.2` | Apenas desenvolvimento local; base V0 |
+| Ollama | `0.32.5` | Geração e embeddings locais |
+| Modelo de geração | `qwen3:8b` | Extração/sumarização local |
+| Modelo de embedding | `nomic-embed-text` | Vetores semânticos locais 768d |
+| MCP TypeScript SDK | `1.30.0` | MCP Streamable HTTP compartilhado |
+| Node.js | `>=20`; imagem `24.18` | Runtime do adaptador/MCP |
 
-The Compose stack deliberately pins V0 `0.15.2`. Redis no longer positions V0
-as a supported production path. Production should use Redis Iris/Cloud through
-a provider adapter, TLS, a secret manager, rate limiting, network policy, and
-provider/store-scoped authorization. See the primary-source
-[discovery report](docs/discovery/redis-agent-memory.md).
+A stack Compose fixa deliberadamente o V0 `0.15.2`. O Redis não posiciona mais o V0
+como caminho de produção suportado. Produção deve usar Redis Iris/Cloud via
+adaptador de provedor, TLS, gerenciador de segredos, rate limiting, política de rede e
+autorização por store/agente do provedor. Veja o
+[relatório de descoberta](docs/discovery/redis-agent-memory.md).
 
-## Quick start
+## Início rápido
 
-Prerequisites: Docker Desktop, Node.js 20+, `jq`, `openssl`, and Ollama. The
-default local path does not require an OpenAI key. The setup wizard starts the
-Ollama Homebrew service when available and pulls `qwen3:8b` plus
+Pré-requisitos: Docker Desktop, Node.js 20+, `jq`, `openssl` e Ollama. O
+caminho local padrão não exige chave OpenAI. O wizard de setup inicia o
+serviço Ollama do Homebrew quando disponível e baixa `qwen3:8b` e
 `nomic-embed-text`.
 
-Run the interactive setup:
+Execute o setup interativo:
 
 ```bash
 ./scripts/setup-memory.sh
 ```
 
-The wizard writes only an ignored mode-`0600` `.env`, generates a unique MCP
-key per agent, asks which workspace may be accessed, creates explicit scope
-grants, starts the stack after confirmation, and checks health. It never prints
-secret values. To configure manually:
+O wizard grava apenas um `.env` ignorado com modo `0600`, gera uma chave MCP
+única por agente, pergunta qual workspace pode ser acessado, cria grants de escopo
+explícitos, sobe a stack após confirmação e verifica saúde. Nunca imprime
+valores de segredo. Para configurar manualmente:
 
 ```bash
 cp .env.example .env
-# Replace every placeholder in .env; chmod 600 .env
+# Substitua cada placeholder em .env; chmod 600 .env
 docker compose -f docker-compose.memory.yml --env-file .env up -d --build
 ./bin/memory health
 ```
 
-`docker compose down` preserves `agent-memory-redis-data`. Never automate
-`down -v`; removing the volume deletes persistent memory.
+`docker compose down` preserva `agent-memory-redis-data`. Nunca automatize
+`down -v`; remover o volume apaga a memória persistente.
 
-The Agent Memory containers reach the host Ollama service through
-`host.docker.internal:11434`. Generation uses `ollama/qwen3:8b`; semantic
-search uses `ollama/nomic-embed-text` with a dedicated 768-dimensional index
-named `memory_records_ollama_768`. The previous 1536-dimensional index is not
-deleted during this migration. OpenAI remains an optional explicit fallback:
-change the model variables and provide `OPENAI_API_KEY` only if you choose it.
-See the [provider compatibility report](docs/discovery/opencode-provider-compatibility.md).
+Os containers Agent Memory alcançam o Ollama do host via
+`host.docker.internal:11434`. A geração usa `ollama/qwen3:8b`; a busca semântica
+usa `ollama/nomic-embed-text` com índice dedicado de 768 dimensões chamado
+`memory_records_ollama_768`. O índice anterior de 1536 dimensões não é
+apagado nesta migração. OpenAI permanece fallback opcional explícito:
+altere as variáveis de modelo e forneça `OPENAI_API_KEY` apenas se escolher.
+Veja o [relatório de compatibilidade de provedores](docs/discovery/opencode-provider-compatibility.md).
 
-## Developer commands
+## Comandos para desenvolvedores
 
 ```bash
 ./bin/memory up
@@ -118,19 +118,19 @@ See the [provider compatibility report](docs/discovery/opencode-provider-compati
 ./bin/memory clear-session <workspace> <project> <namespace> <session>
 ```
 
-`memory doctor` performs an explicit semantic-search probe, so it can detect
-embedding/model connectivity failures that a liveness endpoint cannot. The
-probe is read-only but invokes the configured embedding provider once; with
-the defaults, that call stays on the local Ollama service.
+`memory doctor` executa uma sonda explícita de busca semântica, detectando falhas
+de conectividade de embedding/modelo que um endpoint de liveness não detecta. A
+sonda é somente leitura mas invoca o provedor de embedding configurado uma vez; com
+os padrões, a chamada permanece no Ollama local.
 
-The low-level Agent Memory API and Redis are not published to the host. Only the
-MCP endpoint is mapped, at `127.0.0.1:8787/mcp` by default. Operator
-search/inspect/clear commands also go through the authenticated MCP using the
-Orca key loaded from the ignored `.env`; they do not bypass policy via REST.
+A API Agent Memory de baixo nível e o Redis não são publicados no host. Apenas o
+endpoint MCP é mapeado, em `127.0.0.1:8787/mcp` por padrão. Comandos de operador
+search/inspect/clear também passam pelo MCP autenticado usando a chave Orca do
+`.env` ignorado; não contornam política via REST.
 
-## MCP tools
+## Ferramentas MCP
 
-The stable interface is intentionally higher-level than the V0 tools:
+A interface estável é intencionalmente mais alto nível que as ferramentas V0:
 
 - `memory_search`, `memory_context`, `memory_get_project_context`
 - `memory_remember`, `memory_update`, `memory_forget`
@@ -139,49 +139,50 @@ The stable interface is intentionally higher-level than the V0 tools:
 - `memory_create_handoff`, `memory_get_latest_handoff`
 - `memory_health`
 
-The V0 provider currently maps these to the documented REST equivalents of
-working memory and long-term memory. The official V0 MCP names
+O provedor V0 mapeia isso para os equivalentes REST documentados de
+memória de trabalho e longo prazo. Os nomes MCP V0 oficiais
 (`set_working_memory`, `create_long_term_memories`,
 `search_long_term_memory`, `get_long_term_memory`,
-`edit_long_term_memory`, `delete_long_term_memories`, `memory_prompt`) are not
-exposed to agents and are not assumed for Redis Iris.
+`edit_long_term_memory`, `delete_long_term_memories`, `memory_prompt`) não são
+expostos aos agentes e não são assumidos para Redis Iris.
 
-## Agent integration
+## Integração de agentes
 
-All agents target the same endpoint and use a distinct Bearer key. The server
-derives `agentId` from the key, rejects impersonation, and authorizes every
-workspace/project against `MEMORY_AGENT_GRANTS_JSON`. Authentication alone does
-not grant access to arbitrary projects.
+Todos os agentes apontam para o mesmo endpoint e usam uma chave Bearer distinta. O servidor
+deriva `agentId` da chave, rejeita impersonação e autoriza cada
+workspace/projeto contra `MEMORY_AGENT_GRANTS_JSON`. Autenticação sozinha não
+concede acesso a projetos arbitrários.
 
 ### Codex
 
-The global Codex MCP entry is installed as `shared_memory` and reads the token
-from `SHARED_MEMORY_CODEX_KEY`:
+A entrada MCP global do Codex é instalada como `shared_memory` e lê o token
+de `SHARED_MEMORY_CODEX_KEY`:
 
 ```bash
 codex mcp get shared_memory
 ```
 
-Start a fresh Codex session after loading the variable. No key is stored in
+Inicie uma sessão nova do Codex após carregar a variável. Nenhuma chave é armazenada em
 `~/.codex/config.toml`.
 
-On macOS, generate a LaunchAgent that loads every `SHARED_MEMORY_*_KEY` from
-the protected `.env` into the per-user launchd environment at login:
+No macOS, o template LaunchAgent versionado carrega cada
+`SHARED_MEMORY_*_KEY` do `.env` protegido no ambiente launchd por usuário no login. Instale com:
 
 ```bash
-./scripts/install-launchd-env.sh
+install -m 600 launchd/com.guidev.shared-memory-env.plist \
+  ~/Library/LaunchAgents/com.guidev.shared-memory-env.plist
 launchctl bootstrap "gui/$(id -u)" \
-  ~/Library/LaunchAgents/com.shared-memory.env.plist
+  ~/Library/LaunchAgents/com.guidev.shared-memory-env.plist
 ```
 
-The generated plist and loader contain no key values. The loader resolves `.env`
-relative to this repository, rejects a symlink, an unexpected owner, or
-permissions other than `0600`. Restart agent apps after installation so new
-sessions inherit the launchd environment.
+O plist e o loader não contêm valores de chave. O loader rejeita `.env`
+simbolicamente linkado, proprietário inesperado ou permissões diferentes de `0600`. Encerre a Orca
+completamente e reabra pelo Finder após a instalação para novas sessões herdarem
+o ambiente launchd.
 
 ### Cursor / Composer
 
-`~/.cursor/mcp.json` contains a `shared_memory` entry with:
+`~/.cursor/mcp.json` contém uma entrada `shared_memory` com:
 
 ```json
 {
@@ -192,33 +193,38 @@ sessions inherit the launchd environment.
 }
 ```
 
-Restart Cursor after loading the variable. Existing MCP entries and their
-headers are preserved.
+Reinicie o Cursor após carregar a variável. Entradas MCP existentes e seus
+headers são preservados.
 
 ### Grok
 
-Point the Grok CLI MCP client at `http://127.0.0.1:8787/mcp` with
-`Authorization: Bearer ${SHARED_MEMORY_GROK_KEY}`. Confirm the current Grok CLI
-MCP config format before installing; do not invent a schema.
+O link da skill global é instalado em `~/.grok/skills/shared-memory`, mas este
+Mac atualmente não tem executável `grok` nem schema localmente comprovado para
+`mcpBoxServers` em `~/.grokbot/settings.json`. Não invente esse schema. Instale o
+Grok CLI compatível com Orca, confirme o formato atual de configuração MCP e
+aponte para o mesmo endpoint com `SHARED_MEMORY_GROK_KEY`. Até então, sessão real
+Grok é gate explícito de aceite.
 
 ### Orca
 
-Orca launches Codex, Cursor, and Grok and discovers the universal skill source
-at `~/.agents/skills`. The `shared-memory` skill performs memory bootstrap and
-commit at the agent protocol level. Orca's SQLite orchestration database,
-runtime files, and managed status hooks are intentionally untouched. Do not bind
-the memory MCP to Orca's port (default `6768`).
+A Orca lança Codex, Cursor e Grok e descobre a fonte universal de skills em
+`~/.agents/skills`. A skill `shared-memory` faz bootstrap e commit de memória no
+nível do protocolo do agente. O banco SQLite de orquestração da Orca,
+arquivos de runtime e hooks de status gerenciados permanecem intocados.
 
-## Namespaces and isolation
+Reinicie a Orca antes de validação ao vivo: a descoberta encontrou bootstrap/runtime
+obsoleto. Não reutilize a porta `6768` ocupada pela Orca para memória.
 
-Every operation includes `workspaceId`, optional `projectId`, `namespace`,
-`sessionId`, and authenticated `agentId`; run/task/feature IDs are attached
-when available. A provider-side filter is followed by an adapter-side project
-check, so a bad backend response cannot silently cross project scope. Working
-memory keys additionally bind namespace and agent identity. `*` is accepted
-only for reads, never for writes or deletes.
+## Namespaces e isolamento
 
-Recommended logical layout:
+Cada operação inclui `workspaceId`, `projectId` opcional, `namespace`,
+`sessionId` e `agentId` autenticado; IDs de run/tarefa/feature são anexados
+quando disponíveis. Um filtro no provedor é seguido por verificação de projeto no
+adaptador, para que resposta ruim do backend não cruze escopo de projeto silenciosamente. Chaves de
+memória de trabalho também vinculam namespace e identidade do agente. `*` é aceito
+apenas para leituras, nunca para gravações ou exclusões.
+
+Layout lógico recomendado:
 
 ```text
 global/{engineering,preferences,tooling,conventions}
@@ -226,17 +232,17 @@ projects/<project>/{architecture,frontend,backend,database,security,
                     integrations,api-contracts,decisions,bugs,handoffs}
 ```
 
-Use global memory only for genuinely cross-project knowledge. Rules remain
-instructions; memory remains learned knowledge.
+Use memória global apenas para conhecimento genuinamente cross-project. Regras permanecem
+instruções; memória permanece conhecimento aprendido.
 
-## Lifecycle and context budget
+## Ciclo de vida e orçamento de contexto
 
-Working memory is session-scoped and uses `MEMORY_WORKING_TTL_SECONDS` (default
-6 hours). Long-term records are atomic and persist until superseded,
-deprecated, forgotten, or removed by an explicit provider retention policy.
+A memória de trabalho é escopada à sessão e usa `MEMORY_WORKING_TTL_SECONDS` (padrão
+6 horas). Registros de longo prazo são atômicos e persistem até serem substituídos,
+depreciados, esquecidos ou removidos por política de retenção explícita do provedor.
 
-Recall uses provider search, mandatory metadata filters, relevance threshold,
-result limit, and a final token budget:
+O recall usa busca do provedor, filtros obrigatórios de metadados, limiar de relevância,
+limite de resultados e orçamento final de tokens:
 
 ```text
 provider candidates -> project/namespace/type/status filters
@@ -245,66 +251,61 @@ provider candidates -> project/namespace/type/status filters
                     -> MEMORY_MAX_CONTEXT_TOKENS
 ```
 
-Records carry `active`, `superseded`, or `deprecated` status. `memory_update`
-creates the replacement then links the previous record with `supersededBy`.
-When `sourceCommit` differs from the caller's current commit, recall marks the
-record `possiblyStale`; the agent must verify it against Git.
+Registros carregam status `active`, `superseded` ou `deprecated`. `memory_update`
+cria o substituto e vincula o registro anterior com `supersededBy`.
+Quando `sourceCommit` difere do commit atual do chamador, o recall marca o
+registro como `possiblyStale`; o agente deve verificar no Git.
 
-## Security
+## Segurança
 
-- Unique per-agent Bearer keys; no agent identity supplied by memory content.
-- Example keys in `.env.example` are rejected at startup. Generate unique keys
-  with `./scripts/setup-memory.sh`.
-- Authentication can be disabled only on a loopback listener for tests/local
-  development. Compose keeps it enabled on the MCP.
-- Redis is private to the Docker network and has no host port.
-- Explicit per-agent workspace/project grants authorize every scoped tool call.
-- Secret scanning covers title, content, and persisted metadata, rejecting provider keys, JWT/Bearer tokens, AWS keys, cookies,
-  private keys, credential URLs, passwords, OAuth/GitHub tokens, and common
-  secret assignments before provider calls.
-- Persistent prompt-injection patterns and arbitrary command instructions are
-  rejected before writes.
-- External content remains `external` or `unverified`; one agent cannot forge
-  another agent as provenance. MCP agents also cannot self-assert `user` or
-  `trusted`; that level is reserved for a future separately authenticated
-  approval path.
-- Provider records are runtime-schema validated and safety-scanned again on
-  recall; malformed or poisoned legacy envelopes are dropped.
-- Payloads and authorization headers are excluded from structured logs.
-- Input schemas bound identifiers, metadata, arrays, content size, and result
-  count.
-- Requests use timeouts, bounded exponential retries, and a circuit breaker.
-  Provider failure degrades memory without invalidating repository work.
-- MCP calls have a configurable per-IP limiter
-  (`MEMORY_RATE_LIMIT_PER_MINUTE`, default 120); production proxies must pass a
-  trustworthy client address policy.
+- Chaves Bearer únicas por agente; nenhuma identidade de agente vem do conteúdo da memória.
+- Autenticação pode ser desabilitada apenas em listener loopback para testes/dev
+  local. O Compose mantém habilitada no MCP.
+- Redis é privado à rede Docker e não tem porta no host.
+- Grants explícitos por agente de workspace/projeto autorizam cada chamada de ferramenta com escopo.
+- Varredura de segredos cobre título, conteúdo e metadados persistidos, rejeitando chaves de provedor, tokens JWT/Bearer, chaves AWS, cookies,
+  chaves privadas, URLs com credenciais, senhas, tokens OAuth/GitHub e atribuições comuns de
+  segredo antes de chamadas ao provedor.
+- Padrões persistentes de prompt injection e instruções arbitrárias de comando são
+  rejeitados antes de gravações.
+- Conteúdo externo permanece `external` ou `unverified`; um agente não pode forjar
+  outro agente como proveniência. Agentes MCP também não podem auto-afirmar `user` ou
+  `trusted`; esse nível é reservado a um caminho de aprovação autenticado separado no futuro.
+- Registros do provedor são validados por schema em runtime e varridos novamente no
+  recall; envelopes legados malformados ou envenenados são descartados.
+- Payloads e headers de autorização são excluídos de logs estruturados.
+- Schemas de entrada limitam identificadores, metadados, arrays, tamanho de conteúdo e contagem de
+  resultados.
+- Requisições usam timeouts, retries exponenciais limitados e circuit breaker.
+  Falha do provedor degrada memória sem invalidar trabalho no repositório.
+- Chamadas MCP têm limitador configurável por IP
+  (`MEMORY_RATE_LIMIT_PER_MINUTE`, padrão 120); proxies de produção devem passar política
+  confiável de endereço do cliente.
 
-For production, terminate TLS before the MCP, use Redis Iris store/agent grants,
-place keys in a real secret manager, restrict ingress, and add rate limiting at
-the trusted proxy. V0 `DISABLE_AUTH=true` is acceptable only on the private
-Compose backend network; the API is not exposed.
+Para produção, termine TLS antes do MCP, use grants de store/agente Redis Iris,
+coloque chaves em gerenciador de segredos real, restrinja ingress e adicione rate limiting no
+proxy confiável. V0 `DISABLE_AUTH=true` é aceitável apenas na rede backend privada do
+Compose; a API não é exposta.
 
-See [SECURITY.md](SECURITY.md) to report a vulnerability privately.
+## Observabilidade
 
-## Observability
-
-The MCP writes structured event names without full memory payloads. The current
-runtime emits the following events (update/dedup-specific counters are planned
-only when the service returns an explicit outcome):
+O MCP grava nomes de eventos estruturados sem payloads completos de memória. O runtime
+atual emite os eventos (contadores específicos de update/dedup planejados apenas quando o serviço retorna
+outcome explícito):
 
 ```text
 memory.search memory.hit memory.miss memory.write memory.rejected
 memory.handoff memory.health memory.mcp_error
 ```
 
-`GET /health` returns MCP/provider/Redis status and latency; the local adapter
-checks Redis independently with an authenticated RESP `PING` when `REDIS_URL`
-is configured. `GET /metrics`
-exports process-local counters and total operation latency in Prometheus text
-format. Production deployments should scrape these through a protected
-observability path rather than expose them publicly.
+`GET /health` retorna status e latência MCP/provedor/Redis; o adaptador local
+verifica Redis independentemente com `PING` RESP autenticado quando `REDIS_URL`
+está configurado. `GET /metrics`
+exporta contadores locais do processo e latência total de operação em formato texto
+Prometheus. Deployments de produção devem fazer scrape por caminho de observabilidade
+protegido em vez de expor publicamente.
 
-## Verification
+## Verificação
 
 ```bash
 npm ci
@@ -312,34 +313,33 @@ npm run lint
 npm run typecheck
 npm run build
 npm run test:unit
-npm run test:integration  # opens an ephemeral 127.0.0.1 listener
+npm run test:integration  # abre listener efêmero 127.0.0.1
 npm run test:e2e
 ```
 
-The deterministic E2E simulation uses one provider shared by distinct Grok,
-Codex, and Composer controllers. It validates the decision/contract flow and a
-zero-leak project-B query, but it is not the required real A-E acceptance test.
-Integration tests cover the real Streamable HTTP MCP protocol and V0 REST
-serialization. `scripts/live-working-memory-smoke.mjs` proves the live
-MCP -> V0 -> Redis working-memory path when the stack is running;
-`scripts/live-long-term-smoke.mjs` writes, semantically retrieves, and removes
-a temporary decision through Ollama embeddings and hybrid decision search.
-Worker extraction and separate real agent sessions still require the Compose
-stack, the local Ollama models, installed Grok, and fresh client sessions; do
-not mark those gates complete beforehand.
+A simulação E2E determinística usa um provedor compartilhado por controladores distintos Grok,
+Codex e Composer. Valida o fluxo de decisão/contrato e consulta zero-leak ao projeto B, mas não é o teste de aceite real A-E obrigatório.
+Testes de integração cobrem o protocolo MCP Streamable HTTP real e serialização REST
+V0. `scripts/live-working-memory-smoke.mjs` prova o caminho vivo
+MCP -> V0 -> Redis de memória de trabalho com a stack rodando;
+`scripts/live-long-term-smoke.mjs` grava, recupera semanticamente e remove
+uma decisão temporária via embeddings Ollama e busca híbrida de decisões.
+Extração de worker e sessões reais separadas de agentes ainda exigem a stack
+Compose, modelos Ollama locais, Grok instalado e sessões novas de clientes; não
+marque esses gates como completos antes.
 
-## Troubleshooting
+## Solução de problemas
 
-- `listen EPERM ... 127.0.0.1`: the sandbox blocks local listeners; rerun the
-  integration suite where loopback listeners are allowed.
-- `memory provider circuit is open`: check `./bin/memory health`, API/worker
-  logs, Ollama/model availability, and Redis before retrying after the cooldown.
-- MCP unauthorized: load the correct `SHARED_MEMORY_<AGENT>_KEY`, restart the
-  client, and keep the configured Bearer environment variable name unchanged.
-- Cursor does not see tools: restart it after loading the environment variable;
-  inspect Cursor MCP logs without printing header values.
-- Redis data disappeared: confirm the named volume still exists. `down` keeps
-  it; `down -v` deletes it.
-- Hybrid search unavailable after moving to Iris: Redis Iris Data Plane 1.0.0
-  documents semantic search, not V0's keyword/hybrid options. Use provider
-  capability discovery and do not promise unsupported modes.
+- `listen EPERM ... 127.0.0.1`: o sandbox bloqueia listeners locais; rode a
+  suíte de integração onde listeners loopback são permitidos.
+- `memory provider circuit is open`: verifique `./bin/memory health`, logs API/worker,
+  disponibilidade Ollama/modelo e Redis antes de tentar após o cooldown.
+- MCP unauthorized: carregue a `SHARED_MEMORY_<AGENT>_KEY` correta, reinicie o
+  cliente e mantenha o nome da variável de ambiente Bearer configurada.
+- Cursor não vê ferramentas: reinicie após carregar a variável de ambiente;
+  inspecione logs MCP do Cursor sem imprimir valores de header.
+- Dados Redis sumiram: confirme que o volume nomeado ainda existe. `down` mantém
+  ele; `down -v` apaga.
+- Busca híbrida indisponível após migrar para Iris: Redis Iris Data Plane 1.0.0
+  documenta busca semântica, não opções keyword/híbridas do V0. Use descoberta de
+  capacidades do provedor e não prometa modos não suportados.
