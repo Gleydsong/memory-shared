@@ -78,14 +78,6 @@ export default function Hero() {
       <div className="pointer-events-none absolute bottom-8 right-4 z-10 hidden max-w-[220px] text-right text-xs leading-snug text-[#6b6b6b] sm:block sm:right-8 sm:text-sm">
         memória de agentes · mcp e redis
       </div>
-
-      <div className="absolute right-0 top-1/2 z-10 hidden -translate-y-1/2 lg:block">
-        <div className="flex items-center gap-2 rounded-l-full border border-r-0 border-[#1a1a1a]/15 bg-white/90 px-4 py-2 pr-6 shadow-lg backdrop-blur-sm">
-          <span className="font-display text-xs font-medium text-[#1a1a1a]">v0</span>
-          <span className="text-[#6b6b6b]" aria-hidden>—</span>
-          <span className="font-display text-xs font-medium text-[#6b6b6b]">iris</span>
-        </div>
-      </div>
     </section>
   )
 }
